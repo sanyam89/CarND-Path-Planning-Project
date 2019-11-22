@@ -154,4 +154,85 @@ vector<double> getXY(double s, double d, const vector<double> &maps_s,
   return {x,y};
 }
 
+
+int find_car_lane( double d)
+{
+	if (d < 4)
+		return 0;
+    else if (d < 8)
+	    return 1;
+    else
+	    return 2;
+}
+
+bool laneOpenCheck(int intended_lane, vector<vector<double>> cars_map, double car_s, double car_speed, double safe_dist)
+{
+	double delta_s_behind = safe_dist/2;
+	double delta_s_ahead = safe_dist;
+	
+	bool lane_open = true;
+	for (int i=0; i<cars_map.size(); i++)
+	{
+		double s = cars_map[i][5];
+		double d = cars_map[i][6];
+		if (find_car_lane(d) == intended_lane)
+		{ 
+			// Check for nearest car behind and ahead in lane
+			if ((car_s > s && (car_s-s) < delta_s_behind) || (s > car_s && (s-car_s) < delta_s_ahead))
+				lane_open = false;
+		}
+	}
+	return lane_open;
+}
+struct RetVals
+{
+	double v_ahead;
+	double cost;
+};
+typedef struct RetVals Struct;
+
+// Evaluate cost of being in each lane
+Struct laneCost(int intended_lane, vector<vector<double>> cars_map, double car_s, double car_speed, double safe_dist)
+{
+	double delta_s_behind = safe_dist/3;
+	double v_behind = 0.0;
+	double delta_s_ahead = safe_dist;
+	double v_ahead = car_speed;
+	for (int i=0; i<cars_map.size(); i++)
+	{
+		double vx = cars_map[i][3];
+		double vy = cars_map[i][4];
+		double v = sqrt(pow(vx,2)+pow(vy,2));
+		double s = cars_map[i][5];
+		double d = cars_map[i][6];
+		
+		if (find_car_lane(d) == intended_lane)
+		{
+			// Check for nearest car behind in check lane
+			if (car_s > s && (car_s-s) < delta_s_behind)
+			{
+			   delta_s_behind = car_s-s;
+			   v_behind = v;
+			}
+			// Check for nearest car ahead in check lane
+			if (s > car_s && (s-car_s) < delta_s_ahead)
+			{
+			   delta_s_ahead = s-car_s;
+			   v_ahead = v;
+			}
+		}
+	}
+	
+	/* Lane cost components:
+		1. Car ahead is too close
+		2. Car behind is too close
+		3. Car ahead is much slower
+		4. Car behind is much faster
+	*/
+	double cost = exp(safe_dist/delta_s_ahead-1.0) + exp(safe_dist/delta_s_behind-1.0) + exp(car_speed/v_ahead-1.0) + exp(v_behind/car_speed);
+		
+	return {v_ahead, cost};
+} 
+
+
 #endif  // HELPERS_H
